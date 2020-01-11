@@ -7,18 +7,24 @@ This Repo contains codes for different algos and techniques that are used in Mac
 - Dowloading Data
     - Online (Github)
     - Kaggle
-- Linear Regression 
-    - 365-DataScience [Tools: stasmodel & sklearn]
+- 365-DataScience (Basic) [Tools: stasmodel & sklearn]
+    - Linear Regression 
         - Assumptions
         - Simple Linear Regression
         - Multi Linear Regression
                 - F Regression / P-value 
         - Car Price Prediction 
-- Logistic Regression 
-    - 365-DataScience [Tools: stasmodel & sklearn]
+    - Logistic Regression 
         - logit Regression
-
-- Project Structure [Needs Improvements ]
+- Project Structure
+    - Housing Price Prediction [Structure Setup]<br>
+      [Needs Improvements]
+- Scikit Learn Offical 
+ - Linear Models (Intermediate)
+     - Ordinary Least Squares
+     - Ridge Regrssion <br>
+       [In Progess]
+     
 
 
 # In Progress !! 
