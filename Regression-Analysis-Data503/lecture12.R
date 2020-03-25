@@ -1,0 +1,340 @@
+###################################################################################
+#
+# Lecture12.R
+#
+###################################################################################
+# External Functions
+###################################################################################
+#install.packages("faraway")
+#install.packages("ggplot2")
+#install.packages("ellipse")
+library(faraway)
+library(ggplot2)
+library(lmtest)
+###################################################################################
+# Internal Functions
+###################################################################################
+###################################################################################
+# Processing 
+###################################################################################
+#Save the environment
+parSave=par(no.readonly = TRUE)
+###################################################################################
+# 6.2.1 Leverage  
+###################################################################################
+plot(-400:400/100,dnorm(-400:400/100),type='l',ylim=c(0,1),xlab="",ylab="")
+lines(0:400/100,2*dnorm(0:400/100),col=2)
+abline(v=0,col=2)
+set.seed(123)
+z=rnorm(100)
+lines(density(z),col=3)
+lines(density(abs(z)),col=4)
+qqnorm(z)
+qqline(z)
+halfnorm(abs(z))
+###################################################################################
+data(savings)
+n=nrow(savings)
+lmod<-lm(sr~pop15+pop75+dpi+ddpi,savings)
+p=length(coef(lmod))
+summary(lmod)
+hatv<-hatvalues(lmod)
+head(hatv)
+sum(hatv)
+hatv[hatv>2*p/n]
+
+#Half-normal plot
+countries<-row.names(savings)
+halfnorm(hatv,labs=countries,ylab="Leverages")
+
+
+#Plot the standardized residuals #both are suffuenct for checking normality
+qqnorm(rstandard(lmod))
+abline(0,1)
+qqnorm(residuals(lmod));qqline(residuals(lmod)) #Compare
+###################################################################################
+# 6.2.2 Outliers  
+###################################################################################
+set.seed(123)
+testdata<-data.frame(x=1:10,y=1:10+rnorm(10))
+n=10; p=2
+plot(y~x,testdata)
+lmod<-lm(y~x,testdata)
+summary(lmod)
+halfnorm(hatvalues(lmod),ylab="Leverages")
+
+#Add an outlier with a central predictor value 
+p1=c(5.5,12)
+lmod1<-lm(y~x,rbind(testdata,p1))
+plot(y~x,rbind(testdata,p1))
+points(p1[1],p1[2],pch=4,cex=2,col=2)
+abline(lmod)
+abline(lmod1,col=2)
+halfnorm(hatvalues(lmod1),ylab="Leverages")
+
+#Add a point with high leverage, but not an outlier
+p2=c(15,15.1)
+lmod2<-lm(y~x,rbind(testdata,p2))
+plot(y~x,rbind(testdata,p2))
+points(p2[1],p2[2],pch=4,cex=2,col=2)
+abline(lmod)
+abline(lmod2,col=2)
+halfnorm(hatvalues(lmod2),ylab="Leverages")
+
+#Add an outlier with high leverage
+#Influential, i.e. substantial effect on the analysis
+p3=c(15,5.1)
+lmod3<-lm(y~x,rbind(testdata,p3))
+plot(y~x,rbind(testdata,p3),ylim=c(0,16))
+points(p3[1],p3[2],pch=4,cex=2,col=2)
+abline(lmod)
+abline(lmod3,col=2)
+halfnorm(hatvalues(lmod3),ylab="Leverages")
+#Compare the two fits for R2, residual sd, p-value
+summary(lmod)
+summary(lmod3)
+par(mfrow=c(2,2))
+plot(lmod)
+plot(lmod3)
+par(parSave)
+#Studentized residuals for lmod3
+stud=rstudent(lmod3)
+(tt=stud[which.max(abs(stud))])
+#new alpha
+alpha2=.05/n
+#Calculate the p-value: 2*P(t>tt)
+2*(1-pt(abs(tt),n-p-1)); alpha2  #This is an outlier
+
+
+#Studentized residuals for real data
+data(savings)
+n=nrow(savings)
+lmod<-lm(sr~pop15+pop75+dpi+ddpi,savings)
+p=length(coef(lmod))
+stud<-rstudent(lmod)
+(tt=stud[which.max(abs(stud))])
+#Bonferroni critical value
+qt(1-(.05/(50*2)),50-5-1)
+#Alternative
+alpha2=.05/n
+#Calculate the p-value: 2*P(t>tt)
+2*(1-pt(abs(tt),n-p-1)); alpha2  #p-value is greater than alpha2, so not recognized as an outlier
+
+#Multiple influential outliers hiding each other
+data(star)
+head(star)
+?star
+dim(star)
+plot(light~temp,star,xlab="log(Temperature)",ylab="log(Light Intensity")
+lmodg<-lm(light~temp,star)
+abline(lmodg)
+qt(1-(.05/(47*2)),47-2-1) #Bonferroni cv
+range(rstudent(lmod))
+
+#Exclude the giants
+lmodi<-lm(light~temp,star,subset=(temp>3.6))
+abline(lmodi,col=2,lty=2)
+
+#Check the two fits
+summary(lmodg)
+summary(lmodi)
+###################################################################################
+# 6.2.3 Influential Observations  
+###################################################################################
+data(savings)
+n=nrow(savings)
+lmod<-lm(sr~pop15+pop75+dpi+ddpi,savings)
+summary(lmod)
+cook<-cooks.distance(lmod)
+plot(cook)
+tail(sort(cook))
+cases=which(cook>.09)
+cook[cases]
+#We label the 3 largest points
+halfnorm(cook,3,labs=countries,ylab="cook's Distances")
+
+#What happens if we leave the three most influential points out?
+lmod2<-lm(sr~pop15+pop75+dpi+ddpi,savings[-cases,])
+#Or just the most influential one
+lmod3<-lm(sr~pop15+pop75+dpi+ddpi,savings,subset=(cook<max(cook)))
+summary(lmod)
+summary(lmod2)
+summary(lmod3)
+#Not a large difference
+
+#Show all the plots provided by R
+par(mfrow=c(2,2))
+plot(lmod)
+par(parSave)
+
+#Giants
+par(mfrow=c(2,2))
+plot(lmodg)
+par(parSave)
+###################################################################################
+# 6.3 Checking the Structure of the Model  
+###################################################################################
+data(savings)
+lmod<-lm(sr~pop15+pop75+dpi+ddpi,savings)
+summary(lmod)
+#Obtain a version of Y with the effect of all predictors except pop15 removed
+d=residuals(lm(sr~pop75+dpi+ddpi,savings))
+#Obtain a version of pop15 with the effect of all predictors removed
+m=residuals(lm(pop15~pop75+dpi+ddpi,savings))
+#Partial regression plot:
+#Plot this version of Y against this version of pop15
+plot(m,d,xlab="pop15 residuals", ylab="Savings residuals")
+#Same coefficients
+coef(lm(d~m))
+coef(lmod)
+#Line through (0,0) with slope beta for pop15
+abline(0,coef(lmod)['pop15'])
+#Line for the regression of d on m is the same
+abline(lm(d~m), col=2)
+
+#Partial Residual plot
+par(mfrow=c(1,2))
+termplot(lmod,partial.resid=T,terms=1)
+#Manually (Note that termplot centers the partials):
+v1=savings$pop15*summary(lmod)$coef[2,1]+residuals(lmod)
+plot(v1~savings$pop15)
+abline(lm(v1~pop15,savings),col=2)
+par(parSave)
+
+mod1<-lm(sr~pop15+pop75+dpi+ddpi,savings,subset=(pop15>35))
+mod2<-lm(sr~pop15+pop75+dpi+ddpi,savings,subset=(pop15<=35))
+summary(mod1)
+summary(mod2)
+summary(lmod)
+
+savings$status<-ifelse(savings$pop15>35,"young","old")
+ggplot(savings,aes(x=ddpi,y=sr,shape=status))+geom_point()
+ggplot(savings,aes(x=ddpi,y=sr))+geom_point()+facet_grid(~status)+stat_smooth(method="lm")
+###################################################################################
+# 7.3 Collinearity  
+###################################################################################
+data(seatpos)
+head(seatpos)
+?seatpos
+dim(seatpos)
+lmod<-lm(hipcenter~.,seatpos)
+summary(lmod) #None of the predictors are significant
+#Create X without the 1 vector
+X1=model.matrix(lmod)[,-1]
+
+#eigendecomposition of X1'X1
+ev<-eigen(crossprod(X1))
+ev$val
+(K=sqrt(ev$val[1]/ev$val)) #FIVE values are too large! We have much collinearity.
+
+#Pairwise correlations
+round(cor(seatpos[,-9]),2)
+#HT and HtShoes have a correlation of one, so one of them should be removed.
+#Many others are close to 1.
+
+#VIFs
+r1.2=summary(lm(x[,1]~x[,-1]))$r.squared #R^2 for the first variable
+(1-r1.2)^-1                         #VIF for the first variable
+vif(X1)                             #All of them
+
+#We remove HtShoes to start with.
+lmod2=update(lmod,.~.-HtShoes)
+#Compare summaries
+summary(lmod)
+summary(lmod2) #R2 is almost the same, so we did not lose much
+
+#eigendecomposition
+ev<-eigen(crossprod(X1[,-3]))
+(K=sqrt(ev$val[1]/ev$val)) #Four values are still too large.
+
+#VIF
+vif(X1[,-3])
+
+#We should remove several more. Which ones depends on which ones are considered more
+#important.
+lmod3=update(lmod,.~Age+Weight+Thigh)
+summary(lmod3)
+lmod4=update(lmod,.~Age+Weight+Ht)
+summary(lmod4)
+summary(update(lmod,.~Ht))
+summary(update(lmod,.~Age+Ht))
+#Check out several models
+head(X1)
+vif(X1)
+vif(X1[,c(1,2,7)])
+vif(X1[,c(1,2,4)])
+vif(X1[,c(1,4)])
+#eigendecompositions
+ev<-eigen(crossprod(X1[,c(1,2,7)]))
+(K=sqrt(ev$val[1]/ev$val)) #Fine
+ev<-eigen(crossprod(X1[,c(1,2,4)]))
+(K=sqrt(ev$val[1]/ev$val)) #Fine
+ev<-eigen(crossprod(X1[,c(4)])) #We do not normally do this
+(K=sqrt(ev$val[1]/ev$val)) # This is 1, of course
+ev<-eigen(crossprod(X1[,c(1,4)]))
+(K=sqrt(ev$val[1]/ev$val)) #Fine
+###################################################################################
+# Categorical predictors  
+###################################################################################
+x.1=c(1,4,3,6,10,5,6,8,2,1)
+x.2=c(-10,3,6,8,9,14,-5,-3,3,4)
+x.3=c(1,1,3,7,3,1,7,3,3,3)
+x.4=c("Yes","Maybe","Yes","No","No","Yes","Yes","No","Yes","Maybe")
+y=c(-5,11,10,15,25,25,5,12,6,5)
+z=c(3,2,12,5,14,0,6,20,13,18)
+
+#One categorical predictor with 3 values
+plot(z~x.3)
+abline(lm(z~x.3))
+points(1,mean(z[x.3==1]),pch='X',col=2)
+points(3,mean(z[x.3==3]),pch='X',col=2)
+points(7,mean(z[x.3==7]),pch='X',col=2)
+lmod=lm(z~x.3)
+lmodf=lm(z~factor(x.3))
+summary(lmod)
+summary(lmodf)
+mean(z[x.3==1])
+mean(z[x.3==3])
+mean(z[x.3==7])
+fitted(lmod)
+fitted(lmodf)
+par(mfrow=c(1,2))
+plot(residuals(lmod)~fitted(lmod))
+abline(h=0)
+plot(residuals(lmodf)~fitted(lmodf))
+abline(h=0)
+par(parSave)
+
+#With an alphanumeric predictor
+plot(factor(x.4),y)
+summary(lm(y~x.4))
+fitted(lm(y~x.4))
+plot(residuals(lm(y~x.4)),fitted(lm(y~x.4)))
+
+#Multiple predictors
+df=data.frame(y,x.1,x.2,x.3)
+lmod=lm(y~.,df)
+summary(lmod)
+df$x.3=factor(df$x.3)
+lmod2=lm(y~.,df)
+summary(lmod2)
+z.3=c(0,0,1,0,1,0,0,1,1,1)
+z.4=c(0,0,0,1,0,0,1,0,0,0)
+lmod3=lm(y~x.1+x.2+z.3+z.4)
+summary(lmod3)
+model.matrix(lmod2)
+
+z=c(3,2,12,5,14,0,6,20,13,18)
+plot(z~x.3)
+abline(lm(z~x.3))
+points(1,mean(z[x.3==1]),pch='X',col=2)
+points(3,mean(z[x.3==3]),pch='X',col=2)
+points(7,mean(z[x.3==7]),pch='X',col=2)
+summary(lm(z~x.3))
+summary(lm(z~factor(x.3)))
+mean(z[x.3==1])
+mean(z[x.3==3])
+mean(z[x.3==7])
+fitted(lm(z~x.3))
+fitted(lm(z~factor(x.3)))
+

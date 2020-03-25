@@ -1,0 +1,309 @@
+---
+output:
+  html_document: default
+  word_document: default
+---
+```{r}
+library(faraway)
+library(ggplot2)
+library(lmtest)
+library(MASS)
+library(Amelia)
+```
+
+```{r}
+data(sat)
+sat
+```
+1: Buliding a Model <br>
+a)	Run a linear model with response total and predictors expend, ratio, salary, and takers. What is the regression coefficient for ratio
+```{r}
+lmod1 <- lm(total ~ expend + ratio + salary + takers, sat)
+summary(lmod1)
+```
+ratio         -3.6242 <br>    
+
+2: Checking Normality <br>
+b)	Create the usual linear model plots. Looking at the normal qq plot, the normality could be an issue. Why? Run a test to verify whether there really is a problem.
+```{r}
+qqnorm(residuals(lmod1),ylab = "Residuals", main ="")
+qqline(residuals(lmod1))
+```
+<br>
+It seems to have a fatter tails problem <br>
+I am not sure. 
+So, Checking using Shapiro Test
+```{r}
+#not Sure
+#Checking using Shapiro Test
+  shapiro.test(residuals(lmod1))
+```
+Shapiro test <br>
+H0 : Dist is Normal <br>
+H1 : Dist is Not normal <br>
+<br>
+P value  is High. <br>
+Fail to reject null hypotheses. <br> 
+Hence Normal dist. <br>
+
+3) Checking Influentional Observations <br>
+c)	Looking at the residuals vs. leverage plot, is there a state that we should investigate further?
+
+```{r}
+plot(lmod1)
+```
+<br>
+None of the points is over 0.5 or 1. Utah is at ~0.5 and could possibly an Influentional point. We need to further Investigate the Suitatiuon <br>
+<br>
+4) Checking High Leverage Points <br>
+d)	Again looking at the residuals vs. leverage plot, approximately how many high leverage points can you identify? Confirm this using code and identify the states with these high leverage points.
+<br>
+By looking at graph it looks we have 2 high leverage points. <br>
+Lets Verify using code: <br>
+```{r}
+
+halfnorm(hatvalues(lmod1), labs = row.names(sat), ylab = "Leverages")
+```
+<br>
+Utah and California are High leverage points (Observations) <br>
+<br>
+5) Checking Varience <br>
+e)	Create four plots of the residuals versus each of the predictors. Indicate the points for the state you found in c. Does it seem like the state has unusual values for the predictors? <br>
+```{r}
+plot(sat$expend, residuals(lmod1), xlab = "Expend", ylab = "Residuals")
+abline(h=0)
+points(sat["Utah","expend"],residuals(lmod1)["Utah"][[1]], col="red")
+abline(v=8.7,col="pink")
+```
+<br>
+We can Observe few observations with expend value more then 8.7  <br>
+```{r}
+plot(sat$ratio, residuals(lmod1), xlab = "Ratio", ylab = "Residuals")
+abline(h=0)
+points(sat["Utah","ratio"],residuals(lmod1)["Utah"][[1]], col="red")
+abline(v=24,col="pink")
+
+```
+<br>We can Observe 2 observations with ratio value more then or equal 24  <br>
+```{r}
+plot(sat$salary, residuals(lmod1), xlab = "Salary", ylab = "Residuals")
+abline(h=0)
+points(sat["Utah","salary"],residuals(lmod1)["Utah"][[1]], col="red")
+abline(v=44,col="pink")
+```
+<br> We can see Few Observations with salary over 44 <br>
+```{r}
+plot(sat$takers, residuals(lmod1), xlab = "Takers", ylab = "Residuals")
+abline(h=0)
+points(sat["Utah","takers"],residuals(lmod1)["Utah"][[1]], col="red")
+abline(v=40,col="pink")
+```
+<br> we can see the two seperate behivours of Takers below 40 and above 40<br>
+<br>
+f)	Identify any potential issues with any of the plots produced in e). <br>
+<br>
+  i)  Residuals vs Expend<br>
+      we can we non constant varience. <br>
+  ii) Residuals vs Ratio <br>
+      Varinece Looks pretty much constant <br>
+ iii) Residuals vs Salary <br>
+       Non constant variance <br>
+  iv) Residuals vs Takers <br>
+      Non liearity can be Observed. <br>
+      <br>
+g)	Give the four states with the highest residuals (possible outliers) in order, highest last. <br>
+```{r}
+ plot(fitted(lmod1),abs(residuals(lmod1)),)
+ text(fitted(lmod1),abs(residuals(lmod1)), labels = row.names(sat))
+ abline(h=64)
+```
+<br>
+Follwing are the points with highest residuals and could possibly be outliers. <br>
+New Hampshire <br>
+Utah <br>
+North Dakota <br>
+West Virginia <br>
+<br>
+h)	Give the four states with the highest studentized residuals in order, highest last. <br>
+```{r}
+plot(abs(rstudent(lmod1)))
+text(abs(rstudent(lmod1)),labels = row.names(sat))
+```
+<br>
+Follwing are the points with highest stutentized residuals <br>
+New Hampshire <br>
+North Dakota <br>
+Utah <br>
+West Virginia <br>
+<br>
+i)	Why is there a difference between g and h? <br>
+? <br>
+<br>
+j)	Create both a partial regression plot with a regression line, and a partial residual plot for takers. Which one has more data points in the center (a meaningless question just to establish that you did the exercise)? <br>
+```{r}
+lmod_a <- lm(total ~ expend + ratio + salary , sat)
+ra <- residuals(lmod_a)
+lmod_b <- lm(takers ~ expend + ratio + salary , sat)
+rb <- residuals(lmod_b)
+plot(rb,ra, xlab = "Taker Residuals", ylab = "Total's Residuals")
+#line
+abline(lm(ra~rb),col=2)
+```
+
+```{r}
+termplot(lmod1, partial.resid = T, terms=1)
+```
+<br> Partial Regression plot has more points in Center.<br>
+<br>
+k)	Perform an eigenvalue decomposition. Do we have collinearity in the predictors expend, ratio, salary, and takers? If so, how many eigenvalues point to this? <br>
+```{r}
+#Create X without one vector 
+X1 = model.matrix(lmod1)[,-1]
+ev <- eigen(crossprod(X1))
+(K=sqrt(ev$val[1]/ev$val)) # 2 values are high 
+#summary(lmod1)
+```
+<br> <br>
+l)	Which two of the predictors have the highest correlation? <br>
+```{r}
+cor(X1)
+```
+<br>
+expend and salary have high corelation of 0.8698015 <br>
+<br>
+m)	Which predictors (if any) have variance inflation factors that indicate a problem, and which ones need more investigation? <br>
+
+```{r}
+vif(X1)
+```
+<br>
+expend and salary has vif > 5. Needs Invetigation. <br>
+<br>
+n)	Judging by the adjusted R2 (You will learn more about this in machine learning; it is a better indicator than the regular R2 because it penalizes additional predictors), pick the best model among the original and the two where each one of the two problematic predictors has been removed. <br>
+```{r}
+#Model 1: lmod1 <- lm(total ~ expend + ratio + salary + takers, sat)
+#Model 2:
+lmod2 <-  lm(total ~  ratio  + takers, sat)
+summary(lmod1); summary(lmod2)
+```
+<br> R Squre and adjusted R Squre both decresese in 2nd model. meaning 1st is better. (However Removing them doesnot make much differnce) <br>
+<br>
+o)	Using the best model so far (the one in n) determine if the model can benefit from a transformation of the response. Using the adjusted R2 again, determine which model is best. <br>
+```{r}
+#Checnkig Wheater we need trasnforation or not
+bc <- boxcox(lmod1, plotit=T)
+```
+<br> WE need a transformation because, 1 is in not is CI. Infact we have found a point instead of CI. Which is not 1. <br>
+```{r}
+bc$x[which.max(bc$y)]
+```
+
+<br> Best transformation is power of -2 <br>
+```{r}
+#Applying Transformation
+summary(lm(total^-2 ~ expend + ratio + salary + takers, sat))
+```
+<br> <br> p)	With the model from n, create orthogonal polynomial predictors for takers. Determine which order polynomial would be best. Is this model better than the two in n and o? <br>
+```{r}
+print("2nd Ploy")
+lmod3_a <- lm(total ~ expend + ratio + salary +poly(takers,2), sat)
+summary(lmod3_a)$r.squared;summary(lmod3_a)$adj.r.squared
+print("3nd Ploy")
+lmod3_b <- lm(total ~ expend + ratio + salary +poly(takers,3), sat)
+summary(lmod3_b)$r.squared;summary(lmod3_b)$adj.r.squared
+print("4nd Ploy:")
+lmod3_c <- lm(total ~ expend + ratio + salary +poly(takers,4), sat)
+summary(lmod3_c)$r.squared;summary(lmod3_c)$adj.r.squared
+print("5nd Ploy:") 
+lmod3_d <- lm(total ~ expend + ratio + salary +poly(takers,5), sat)
+summary(lmod3_d)$r.squared;summary(lmod3_d)$adj.r.squared
+```
+<br> 4rth Polynomial is Best. as after that adj R sqaured Recreases which means 5th becomes insignificant. <br>
+```{r}
+print("Model 3: lm(total ~ expend + ratio + salary +poly(takers,4), sat) ")
+lmod3 <- lm(total ~ expend + ratio + salary +poly(takers,4), sat)
+summary(lmod3)$r.squared;summary(lmod3)$adj.r.squared
+print("Model 1: lm(total ~ expend + ratio + salary + takers, sat) ")
+summary(lmod1)$r.squared;summary(lmod1)$adj.r.squared
+print("Model 2: lm(total^-2 ~ expend + ratio + salary + takers, sat))")
+summary(lmod2)$r.squared;summary(lmod2)$adj.r.squared
+
+```
+<br>Model 3 is better then previous Models.<br>
+<br>
+q)	For your best model so far, check out the plots and compare to the originals. Do they look better now?
+```{r}
+plot(lmod3)
+```
+<br> Plots Look Much better now. <br>
+<br> 
+r)	Now imagine we settled on a model of total vs. salary and takers. Ratio and expend are also in the data set, but we are not using those in the model. 
+<br>
+Setting the seed to 123, create a data set sat2 that has 20 random values of salary set to NA. 
+<br>
+Create a third data set sat3 that is a copy of sat2. 
+<br>
+Use regression to impute the missing values for the salaries predictor in sat3. 
+<br>
+At this point, sat will have the original values, sat2 the missing values, and sat3 the imputed by regression values. Compare some of the imputed values versus the originals; does it seem like the process did a good job?
+<br>
+<br>Step1: Setting the seed to 123, create a data set sat2 that has 20 random values of salary set to NA.<br>
+```{r}
+set.seed(123)
+df_containing_approx_20nulls_forAll = as.data.frame(lapply(sat, function(cc) cc[sample(c(TRUE,NA), prob = c(.61,.39), size = length(cc), replace = TRUE)]))
+summary(df_containing_approx_20nulls_forAll)
+```
+```{r}
+sat2 = sat[,-3]
+sat2$salary = df_containing_approx_20nulls_forAll$salary
+summary(sat2)
+```
+<br>
+Step2: Create a third data set sat3 that is a copy of sat2. 
+<br>
+```{r}
+sat3 = sat2
+```
+br>
+Step2: Use regression to impute the missing values for the salaries predictor in sat3. 
+<br>
+Single Imutation <br>
+```{r}
+#Making Model for perdiciving missing salary values 
+lmod_missing_salary = lm(salary~expend+ratio+takers+verbal+math,sat2)
+#Cheking model is good enough?
+summary(lmod_missing_salary)
+#getting the records with NA salary #must be 20
+records_with_missing_salary = sat2[is.na(sat3$salary),]
+#predicting missing salaries
+predicted_missing_salries = predict(lmod_missing_salary , records_with_missing_salary)
+predicted_missing_salries
+#comapring with actual values
+sat$salary[is.na(sat2$salary)]
+#Replacing null with the perdicted salary Values
+sat3[is.na(sat2[,"salary"]),"salary"] = predicted_missing_salries
+#checking Summary
+summary(sat3)
+
+```
+<br>s)	Compare the summaries of the three models of total vs. salary and takers for the three data sets. Does the imputation by regression do a better job compared to the default (removing the cases)?<br>
+```{r}
+#model 1
+lmod_with_defualt_values = lm(total~salary+takers,sat)
+#model 2
+lmod_with_perdicted_missing_values = lm(lm(total~salary+takers,sat3))
+#model 3
+sat_null_removed = na.omit(sat2)
+summary(sat_null_removed)
+lmod_null_removes = lm(lm(total~salary+takers,sat_null_removed))
+#Comparing Models
+summary(lmod_with_defualt_values)
+summary(lmod_with_perdicted_missing_values)
+summary(lmod_null_removes)
+```
+<br>Model with predicted missing salaries performs slighty better then the others<br>
+<br>
+t)	Using the data set with missing values (sat2), set the seed to 123 and perform multiple imputation. Compare the regression coefficients and standard errors with those obtained in s.<br>
+
+
+

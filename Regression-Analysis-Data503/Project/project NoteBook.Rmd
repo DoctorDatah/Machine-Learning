@@ -1,0 +1,178 @@
+```{r}
+library(faraway)
+library(ggplot2)
+library(lmtest)
+```
+<br><h2>Initial Data Analysis</h2><br>
+```{r}
+summary(chicago)
+boxplot(chicago[,7],main=names(chicago)[7])
+par(mfrow=c(2,3))
+for(i in 1:6) 
+  boxplot(chicago[,i],main=names(chicago)[i]) 
+```
+<br>Income has much bigger numbers then other parameters. It would have greater weight in the regression model. Hence, to avoid this we standardize the data frame. <br>
+<h2>Scaling</h2>
+```{r}
+ch = scale(chicago)
+summary(ch)
+```
+<br><h2>Checking the liear Structure of the model</h2><br>
+```{r}
+ch= data.frame(ch)
+```
+```{r}
+lmod_full <- lm(involact~., ch) 
+lmod_full$rank
+summary(lmod_full)
+
+```
+```{r}
+termplot(lmod_full, partial.resid = T, terms=1)
+termplot(lmod_full, partial.resid = T, terms=2)
+termplot(lmod_full, partial.resid = T, terms=3)
+termplot(lmod_full, partial.resid = T, terms=4)
+termplot(lmod_full, partial.resid = T, terms=5)
+termplot(lmod_full, partial.resid = T, terms=6)
+
+
+```
+<br>Structure Seems Linear<br>
+<h2>Checking Normality</h2>
+```{r}
+qqnorm(residuals(lmod_full),ylab = "Residuals", main ="")
+qqline(residuals(lmod_full))
+```
+<br> It looks we have fatter tails problem <br>
+Using Shapiro Test for varification.<br>
+```{r}
+#Checking using Shapiro Test
+  shapiro.test(residuals(lmod_full))
+```
+<br>P-value High, Accepting NUll hypotheses. Dist is Normal.<br>
+<h2>Checking Error Variance</h2>
+```{r}
+plot(fitted(lmod_full),residuals(lmod_full))
+abline(h=0)
+```
+<br>Looks constant varrience with few anaomles.<br>
+<h2>Checking Collinearity</h2>
+```{r}
+X = model.matrix(lmod_full)[,-1]
+cor(X)
+```
+```{r}
+vif(X)
+```
+<br>Every Predictor is under 5. we are safe. (volcat has relatively high correlection with other predictors<br>
+Building model without volact<br>
+```{r}
+lmod1_without_volcat = lm(involact ~  race + fire + theft + age + income, ch )
+summary(lmod1_without_volcat)
+```
+<br>Model without volcat performs better.<br>
+<br>Now, Checking this using anova. <br>
+```{r}
+anova(lmod1_without_volcat,lmod_full)
+```
+<br> H0: Beta(r) = 0 <br>
+    H1: Beta(r) != 0<br>
+  <br>
+    High p-value accept Null Hyptoses. <br>
+simpl words: volcat is not significat. <br>
+<br>Cheking Summry of the model<br>
+```{r}
+summary(lmod1_without_volcat)
+```
+<br>P-value of income is high. means it insignoficant.<br>
+<br>Lets try removing income.<br>
+```{r}
+lmod2_without_volcat_income = lm(involact ~ race + fire + theft + age, ch)
+summary(lmod2_without_volcat_income)
+```
+<br>Removing it does not make much of the difference<br>
+<br>Comparing 2 model using anova<br>
+```{r}
+anova(lmod2_without_volcat_income,lmod1_without_volcat)
+```
+
+<br> H0: Beta(r) = 0 <br>
+    H1: Beta(r) != 0<br>
+  <br>
+ <br> Significane level = 5% <br>
+    High p-value accept Null Hyptoses. <br>
+simple words: income is not significat. <br>
+
+<h2>Checking Unusual Observations</h2> 
+<br><h3>Checking Leverage Points</h3>
+```{r}
+zips = row.names(ch)
+hat_vals = hatvalues(lmod2_without_volcat_income)
+halfnorm(hat_vals,labs = zips, ylab = "Leverages")
+```
+<br>Zip Code: 60607 seems to be high leverage points.<br>
+<br>Cheking these observations<br>
+```{r}
+row1 = which(rownames(ch) == 60607)
+ch[row1,] 
+```
+<br>We can observe high theft in this observations<br>
+<br>See what's happens if we remove this overvations.<br>
+```{r}
+lmod3_modified_1 = lm(involact ~ race + fire + theft + age ,ch[-row1])
+summary(lmod3_modified_1)
+
+```
+<br>No Effect. It might be a case where acutally high theft happend. As it is not effecting the model let it be in the model but report the case. <br>
+<br>Further Investrigation (Checking through orignoal non standerdized data source)<br>
+```{r}
+theft = 3
+boxplot(ch[,theft],main=names(ch)[theft])
+```
+<br> This observation theft value is far higer then other observation. it must be reported.
+
+<h2>Checking Outliers</h2>
+```{r}
+plot(lmod2_without_volcat_income)
+```
+<br>Cooks distance doesnot show any evidence of any outlier. However one point could possible an outlier<br>
+<br>Checking using Stundtized residuals<br>
+```{r}
+stud=rstudent(lmod2_without_volcat_income)
+tt=stud[which.max(abs(stud))]
+#Pvalue calculation
+n = nrow(ch)
+p = length(coef(lmod2_without_volcat_income))
+print('Zip(observation) and P-value')
+2*(1-pt(abs(tt),n-p-1))
+print("Alpha2")
+(alpha2 = 0.5/n)
+```
+<br>p-values is < aplha. point regognizse as outlier.<br>
+<br>Now lets view this observation.<br>
+```{r}
+row1 = which(rownames(ch) == 60610)
+ch[row1,] 
+```
+<br>It seems we have high fire value in this observation.<br>
+```{r}
+fire = 2
+boxplot(ch[,fire],main=names(ch)[fire])
+```
+<br>We can see cluster of outliers<br>
+lets Investigate and get these clustor<br>
+```{r}
+plot(involact~fire,ch,xlab="Fire", ylab = "involact")
+lmod_dummy = lm(involact~fire,ch)
+abline(lmod_dummy)
+
+#Beforni_Corection
+qt(1-(.05/(47*2)),47-2-1)
+range(rstudent(lmod2_without_volcat_income))
+```
+<br>Those High outiler fire observation lie in range of -3.259645  2.813745<br>
+<br>Lets Exlcude them<br>
+```{r}
+#lmod_dummy2 = lm(involact ~ fire, ch, subset = (fire>3.5))
+```
+
